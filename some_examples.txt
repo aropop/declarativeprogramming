@@ -1,6 +1,6 @@
 % This files contains some examples which you can use to validate your solution.
 % All examples below are for the small instance.
-% Disclaimer: Correct behavior for these examples, does not guarantee your solution is in fact correct. 
+% Disclaimer: Correct behavior for these examples, does not guarantee your solution is in fact correct.
 
 
 
@@ -14,9 +14,10 @@ schedule([event(e1, r2, 1, 11), event(e2, r2, 2, 10), event(e3, r2, 3, 10), even
 schedule([event(e1, r1, 1, 10), event(e2, r2, 2, 10), event(e3, r2, 3, 10), event(e4, r2, 4, 10), event(e5, r2, 5, 10)]) %r1 isn't large enough for all students taking e1
 schedule([event(e1, r2, 1, 10), event(e2, r2, 2, 10), event(e3, r2, 3, 10), event(e4, r2, 3, 11), event(e5, r2, 5, 10)]) %e3 and e4 are held concurrently in the same room
 schedule([event(e1, r2, 3, 11), event(e2, r2, 2, 10), event(e3, r1, 3, 10), event(e4, r2, 4, 10), event(e5, r2, 5, 10)]) %e1 and e3 are held concurrently while 2 students take both exams
+schedule([event(e1, r2, 1, 11), event(e2, r2, 2, 10), event(e3, r1, 3, 10), event(e4, r2, 3, 10), event(e5, r2, 5, 10)]) % Same teacher issue
 */
 
-:- discontiguous 
+:- discontiguous
 	is_valid/1,
 	cost/2,
 	violated_sc/2.

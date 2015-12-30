@@ -2,19 +2,32 @@
 delete_one(_, [], []).
 delete_one(Term, [Term|Tail], Tail).
 delete_one(Term, [Head|Tail], [Head|Result]) :-
-  delete_one(Term, Tail, Result).
+    delete_one(Term, Tail, Result).
 
-% Conversions for schedules
+% Sums a list
+list_sum([Item], Item).
+list_sum([Item1,Item2 | Tail], Total) :-
+    list_sum([Item1+Item2|Tail], Total).
+
+% converts en atom to a number so it can be compared
+exam_to_num(Exam, Num) :-
+    atom_codes(Exam, [_|Codes]),
+    list_sum(Codes, Num).
+
+% Conversions for schedules, only converts if Start is an integer
 schedule_to_exam_lst(schedule([]), []).
-schedule_to_exam_lst(schedule([event(E, _, _, _)|Tail]), [E|Res]) :- schedule_to_exam_lst(schedule(Tail), Res).
-
+schedule_to_exam_lst(schedule([event(E, _, _, St)|Tail]), [E|Res]) :-
+    integer(St),
+    schedule_to_exam_lst(schedule(Tail), Res).
+% Converts a schedule to a list of rooms
 schedule_to_room_lst(schedule([]), []).
 schedule_to_room_lst(schedule([event(_, R, _, _)|Tail]), [R|Res]) :- schedule_to_room_lst(schedule(Tail), Res).
-
+% Invert parameter order for maplist
 has_exam_inv(E,C) :- has_exam(C,E).
+% Converts a schedule to a list of Courses
 schedule_to_course_lst(Schedules, Courses) :- schedule_to_exam_lst(Schedules, Exams),
                                               maplist(has_exam_inv, Exams,  Courses).
-% Checks if all exams are in a schedule
+% Checks if all exams are in a schedule and wether it consits of integer start hours
 check_all(Schedule) :- schedule_to_exam_lst(Schedule, Lst),
                        findall(Exam, exam(Exam,_), Exams),
                        permutation(Exams, Lst).
@@ -73,8 +86,8 @@ check_two_exams_same_room(schedule([H|T])) :- fit_lst(H, T),
 
 
 % Check student at the same time
-check_against_others(_,[], _, _, _). % Rec end
-check_against_others(Students, [event(Ex, _, Day, Start2)|Events], Start, End, Day) :- % Unifies if days are the same
+check_against_others(_, _, [], _, _, _). % Rec end
+check_against_others(Students, Teacher, [event(Ex, _, Day, Start2)|Events], Start, End, Day) :- % Unifies if days are the same
     % Check overlap
     duration(Ex, Dur),
     has_exam(Course, Ex),
@@ -82,19 +95,23 @@ check_against_others(Students, [event(Ex, _, Day, Start2)|Events], Start, End, D
     overlap(Start, End, Start2, End2), % Overlaps, check if same student
     findall(S, follows(S, Course), Students2),
     intersection(Students, Students2, Ints),
-    L is length(Ints),
-    L = 0,
+    length(Ints, L),
+    L == 0,
+    teaches(Teacher2, Course),
+    Teacher2 \== Teacher,
     check_against_others(Students, Events, Start, End, Day).
-check_against_others(Students, [_|Events], Start, End, Day) :- % Days are different so no overlap possible
-    check_against_others(Students, Events, Start, End, Day).
+check_against_others(Students, Teacher, [event(_, _, Day1, _)|Events], Start, End, Day2) :- % Days are different so no overlap possible
+    Day1 \== Day2,
+    check_against_others(Students, Teacher, Events, Start, End, Day2).
 
 check_same_time(schedule([])).
 check_same_time(schedule([event(Ex, _, Day, Start)|Tail])) :-
     has_exam(Course, Ex),
     duration(Ex, Dur),
+    teaches(Teacher, Course),
     findall(S, follows(S, Course), Students),
     End is Start+Dur,
-    check_against_others(Students, Tail, Start, End, Day),
+    check_against_others(Students, Teacher, Tail, Start, End, Day),
     check_same_time(schedule(Tail)).
 
 % Do least demanding tests first
@@ -104,6 +121,53 @@ is_valid(Schedule) :- check_all(Schedule),
                       check_availability(Schedule),
                       check_two_exams_same_room(Schedule),
                       check_same_time(Schedule).
+
+% Compare 2 events
+event_compare(C, event(E1, _, Day1, Start1), event(E2, _, Day2, Start2)) :-
+    (compare(C, Day1, Day2), C \= = );
+    (compare(C, Start1, Start2), C \= =);
+    (exam_to_num(E1, Num1), exam_to_num(E2, Num2), compare(C, Num1, Num2)).
+
+% Print schedule
+%--------------------
+% Prints a single exam
+print_exam([]) :- format('~n', []).
+print_exam([event(Ex, _, _, St)|Exs]) :-
+    duration(Ex, Dur),
+    End is St + Dur,
+    format('~a at ~a until ~a, ', [Ex, St, End]),
+    print_exam(Exs).
+
+compare_room(Room, event(_, Room, _, _)).
+
+% Prints all events on a single day per room
+print_day([]) :- format('~n', []).
+print_day(Lst) :-
+    Lst = [event(_, R, _, _)|Events],
+    include(compare_room(R), Lst, EventsInRoom),
+    room(R, RoomName),
+    format('Room ~w: ',[RoomName]),
+    print_exam(EventsInRoom),
+    exclude(compare_room(R), Events, EventsInOtherRooms),
+    print_day(EventsInOtherRooms).
+
+compare_day(Day, event(_,_,Day,_)).
+
+% Prints all events per day
+print_loop([]).
+print_loop(Lst) :-
+    Lst = [event(_, _, D, _)|Events],
+    include(compare_day(D), Lst, EventsOnDay),
+    format('Day ~w: ~n', [D]),
+    print_day(EventsOnDay),
+    exclude(compare_day(D), Events, EventsOnOtherDays),
+    print_loop(EventsOnOtherDays).
+
+% Main predicate, first sorts then prints all exams
+pretty_print(schedule(EventList)) :-
+    predsort(event_compare, EventList, SortedEvents),
+    print_loop(SortedEvents).
+
 % cost(Scedule, Cost) :- eachsoftconstraint(Schedule, Penalty),
 %                        Cost is Penalty.
 

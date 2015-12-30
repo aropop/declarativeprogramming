@@ -49,7 +49,7 @@ follows(Student,c5) :- student(Student,_). %every student follows Languages
 teaches(l1,c1).
 teaches(l1,c2).
 teaches(l2,c3).
-teaches(l3,c4).
+teaches(l2,c4).
 teaches(l4,c5).
 
 capacity(r1,2).
@@ -74,7 +74,7 @@ sc_no_exam_in_period(l3,3,0,24,5). %Josef prefers no exams at day 3
 sc_no_exam_in_period(l4,Day,0,12,1) :- first_day(FirstDay),last_day(LastDay),between(FirstDay,LastDay,Day). %Ann prefers no exams before noon
 sc_no_exam_in_period(l1,Day,14,24,5) :- first_day(FirstDay),last_day(LastDay),between(FirstDay,LastDay,Day). %John prefers no exams after 14h
 sc_not_in_period(l1,e2,1,0,24,3). %Science & technology preferably not day 1
-sc_correction_time(e1,2). 
+sc_correction_time(e1,2).
 sc_correction_time(e2,1).
 sc_correction_time(e3,1).
 sc_correction_time(e4,1).
@@ -85,7 +85,7 @@ sc_correction_penalty(L,3) :- lecturer(L,_). %guarantee enough correction time
 sc_lunch_break(S,1) :- student(S,_). %students prefer a lunchbreak
 sc_same_day(S,2) :- student(S,_). %students prefer not to have multiple exams on the same day
 sc_b2b(S,5) :- student(S,_). %students prefer not to have exams back 2 back
-sc_study_time(e1,2). 
+sc_study_time(e1,2).
 sc_study_time(e2,1).
 sc_study_time(e3,1).
 sc_study_time(e4,1).
