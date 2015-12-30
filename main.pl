@@ -170,6 +170,37 @@ pretty_print(schedule(EventList)) :-
 
 % cost(Scedule, Cost) :- eachsoftconstraint(Schedule, Penalty),
 %                        Cost is Penalty.
+lunch_break_cost(Students, Teacher, TCost, SCost) :-
+    sc_lunch_break(Teacher, TCost),
+    maplist(sc_lunch_break, Students, PLst),
+    list_sum(PLst, SCost).
+
+period_cost(Teacher, St, End, Day, Cost) :-
+    sc_no_exam_in_period(Teacher, Day, St2, End2, Cost),
+    overlap(St, End, St2, End2).
+period_cost(_, _, _, _, 0).
+
+cost_loop([], 0, 0).
+cost_loop(EventLst, StCost, TCost) :-
+    EventLst = [event(Ex, Rm, Day, St)|Evnts],
+    has_exam(Course, Ex),
+    teaches(Teacher, Course),
+    duration(Ex, Dur),
+    End is St+Dur,
+    findall(S, follows(S, Course), Students),
+    lunch_break_cost(Students, Teacher, LBTcost, LBScost),
+    period_cost(Teacher, St, End, Day, PeriodCost),
+    cost_loop(Evnts, BuildStcost, BuildTCost),
+    StCost is BuildStcost + LBScost,
+    TCost is BuildTCost + LBTcost + PeriodCost.
+
+cost(schedule(Events), Cost) :-
+    cost_loop(Events, StCost, TCost),
+    findall(S, student(S, _), Students),
+    findall(S, lecturer(S, _), Teachers),
+    length(Students, NumSt),
+    length(Teachers, NumT),
+    Cost is (StCost/(NumSt*2)) + (TCost/NumT).
 
 
 schedule([event(e1,r1,1,10),event(e2,r2,1,10)]).
