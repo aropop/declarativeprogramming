@@ -66,8 +66,7 @@ check_availability(schedule([])).
 check_availability(schedule([event(E, R, D, H)|Elist])) :- duration(E, Dur),
                                                            is_available(R, D, H, Dur),
                                                            check_availability(schedule(Elist)).
-
-% Check 2 exams same time in same room
+% Check if 2 times overlap
 overlap(Start1, End1, Start2, End2) :-
     ((Start1 =< Start2, Start2 < End1);
      (Start2 =< Start1, Start1 < End2)).
@@ -80,6 +79,7 @@ fit(E1, E2) :- not(overlap(E1, E2)).
 fit_lst(_, []).
 fit_lst(E1, [E2|Rst]) :- fit(E1, E2),
                          fit_lst(E1, Rst).
+% Check 2 exams same time in same room
 check_two_exams_same_room(schedule([])).
 check_two_exams_same_room(schedule([H|T])) :- fit_lst(H, T),
                                               check_two_exams_same_room(schedule(T)).
@@ -100,9 +100,13 @@ check_against_others(Students, Teacher, [event(Ex, _, Day, Start2)|Events], Star
     teaches(Teacher2, Course),
     Teacher2 \== Teacher,
     check_against_others(Students, Events, Start, End, Day).
-check_against_others(Students, Teacher, [event(_, _, Day1, _)|Events], Start, End, Day2) :- % Days are different so no overlap possible
-    Day1 \== Day2,
-    check_against_others(Students, Teacher, Events, Start, End, Day2).
+check_against_others(Students, Teacher, [event(Ex, _, Day1, Start1)|Events], Start2, End2, Day2) :- % Not overlapping
+    ((Day1 \== Day2);
+     (Day1 == Day2,
+      duration(Ex, Dur),
+      End1 is Start1 + Dur,
+      not(overlap(Start2, End2, Start1, End1)))),
+    check_against_others(Students, Teacher, Events, Start2, End2, Day2).
 
 check_same_time(schedule([])).
 check_same_time(schedule([event(Ex, _, Day, Start)|Tail])) :-
@@ -115,11 +119,11 @@ check_same_time(schedule([event(Ex, _, Day, Start)|Tail])) :-
     check_same_time(schedule(Tail)).
 
 % Do least demanding tests first
-is_valid(Schedule) :- check_all(Schedule),
-                      check_once(Schedule),
-                      check_capacity(Schedule),
-                      check_availability(Schedule),
-                      check_two_exams_same_room(Schedule),
+is_valid(Schedule) :- check_all(Schedule),!,
+                      check_once(Schedule),!,
+                      check_capacity(Schedule),!,
+                      check_availability(Schedule),!,
+                      check_two_exams_same_room(Schedule),!,
                       check_same_time(Schedule).
 
 % Compare 2 events
@@ -180,27 +184,106 @@ period_cost(Teacher, St, End, Day, Cost) :-
     overlap(St, End, St2, End2).
 period_cost(_, _, _, _, 0).
 
+exam_on_day_cost([], _, _, _, _, 0).
+exam_on_day_cost([Pid|Persons], Exam, Day, Start, End, Cost) :-
+    sc_not_in_period(Pid, Exam, Day, Start2, End2, Penalty),
+    overlap(Start, End, Start2, End2),
+    exam_on_day_cost(Persons, Exam, Day, Start, End, BuildCost),
+    Cost is Penalty + BuildCost.
+exam_on_day_cost([_|Persons], Exam, Day, Start, End, Cost) :-
+    exam_on_day_cost(Persons, Exam, Day, Start, End, Cost).
+
+exam_b2b_cost(_, T1, T2, 0) :- T1 \= T2.
+exam_b2b_cost([], _, _, 0).
+exam_b2b_cost([Pid|Persons], End, St, Cost) :-
+    sc_b2b(Pid, Penalty),
+    exam_b2b_cost(Persons, End, St, BuildCost),
+    Cost is Penalty + BuildCost.
+exam_b2b_cost([_|Persons], End, St, Cost) :-
+    exam_b2b_cost(Persons, End, St, Cost).
+
+% finds all b2b exams and samedayexams
+b2b_exam(event(Ex, _, Day, Start), Events, B2BExams, SameDayExams) :-
+    duration(Ex, Dur),
+    End is Start + Dur,
+    findall(Y, member(event(Y, _, Day, _), Events), SameDayExams), !,
+    findall(X, member(event(X, _, Day, End), SameDayExams), B2BExams).
+
+% Abstract predicate
+% Pred is a predicate that returns a Penalty for a given Student (e.g. sc_b2b)
+% It will return the cost for each pair and for each student and each pair of exams accumulated
+on_same_day_student_cost(_, _, [], 0).
+on_same_day_student_cost(Pred, Students, [Ex|Lst], Cost) :-
+    has_exam(Course, Ex),
+    findall(S, follows(S, Course), OtherStudents),
+    intersection(Students, OtherStudents, Overlap),
+    maplist(Pred, Overlap, Costs),
+    list_sum(Costs, CurCost),
+    on_same_day_student_cost(Pred, Students, Lst, BuildCost),
+    Cost is CurCost + BuildCost.
+
+
+b2b_student_cost(Students, Lst, Cost) :-
+    on_same_day_student_cost(sc_b2b, Students, Lst, Cost).
+
+% Same day cost for students
+same_day_student_cost(People, Lst, Cost) :-
+    on_same_day_student_cost(sc_same_day, People, Lst, Cost).
+
+% Abstract predicate
+% Pred is a predicate that returns a Penalty for a given Teacher (e.g. sc_b2b)
+% It will return the cost for each pair of exams accumulated
+on_same_day_teacher_cost(_, _, [], 0).
+on_same_day_teacher_cost(Pred, Teacher, [Ex|Lst], Cost) :-
+    has_exam(Course, Ex),
+    teaches(TeacherFound, Course),
+    ((TeacherFound = Teacher,
+      call(Pred, Teacher, Penalty),
+      on_same_day_teacher_cost(Pred, Teacher, Lst, BuildCost),
+      Cost is Penalty + BuildCost);
+     (on_same_day_teacher_cost(Pred, Teacher, Lst, Cost))).
+
+% B2B cost for teachers
+b2b_teacher_cost(Teacher, Lst, Cost) :-
+    on_same_day_teacher_cost(sc_b2b, Teacher, Lst, Cost).
+
+% Same day cost for teachers
+same_day_teacher_cost(Teacher, Lst, Cost) :-
+    on_same_day_teacher_cost(sc_same_day, Teacher, Lst, Cost).
+
+% Loop over all exams and calculate the cost for students and exams
 cost_loop([], 0, 0).
 cost_loop(EventLst, StCost, TCost) :-
+    % Find all information about the exam
     EventLst = [event(Ex, Rm, Day, St)|Evnts],
     has_exam(Course, Ex),
     teaches(Teacher, Course),
     duration(Ex, Dur),
     End is St+Dur,
     findall(S, follows(S, Course), Students),
+    % Calculate the cost for each soft constraint
     lunch_break_cost(Students, Teacher, LBTcost, LBScost),
     period_cost(Teacher, St, End, Day, PeriodCost),
+    exam_on_day_cost(Students, Ex, Day, St, End, OnDayCostStudent),
+    exam_on_day_cost([Teacher], Ex, Day, St, End, OnDayCostTeacher),
+    b2b_exam(event(Ex, Rm, Day, St), Evnts, B2BExams, SameDayExams), !,
+    b2b_student_cost(Students, B2BExams, B2bStCost),
+    b2b_teacher_cost(Teacher, B2BExams, B2bTCost),
+    b2b_student_cost(Students, SameDayExams, SdStCost),
+    b2b_teacher_cost(Teacher, SameDayExams, SdTCost),
+    % Go deeper in recursion
     cost_loop(Evnts, BuildStcost, BuildTCost),
-    StCost is BuildStcost + LBScost,
-    TCost is BuildTCost + LBTcost + PeriodCost.
+    % Sum the costs from this iteration and the previously calculated ones
+    StCost is BuildStcost + LBScost + OnDayCostStudent + B2bStCost + SdStCost,
+    TCost is BuildTCost + LBTcost + PeriodCost + OnDayCostTeacher + B2bTCost + SdTCost.
 
+% Calculate the cost for a schedule
 cost(schedule(Events), Cost) :-
-    cost_loop(Events, StCost, TCost),
+    is_valid(schedule(Events)), !, % If not valid don't bother
+    cost_loop(Events, StCost, TCost), % Calculate the cost for students and Exams independently
     findall(S, student(S, _), Students),
     findall(S, lecturer(S, _), Teachers),
     length(Students, NumSt),
     length(Teachers, NumT),
+    % Calculate sum as given in the assignment
     Cost is (StCost/(NumSt*2)) + (TCost/NumT).
-
-
-schedule([event(e1,r1,1,10),event(e2,r2,1,10)]).
