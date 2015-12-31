@@ -347,15 +347,16 @@ correction_loop([event(Ex, _, Day, _)|Exs], St, End, FreeList, Penalty) :-
     Penalty is (ResDays*Cost) + BuiltPenalty.
 
 
-my_findall(Events, Teacher, ExamEvents) :-
+findall_events_for_a_teacher(Events, Teacher, ExamEvents) :-
     findall(Ev, (teaches(Teacher, Course), has_exam(Course, Ex), member(event(Ex,Rm,Dy,St), Events), Ev = event(Ex, Rm, Dy, St)), ExamEvents).
 my_correction_loop(EvLst, Penalty) :-
     first_day(St),
     last_day(End),
     correction_loop(EvLst, St, End, _, Penalty).
-cost_no_loop(Events, StCost, TCost) :-
+    
+cost_no_loop(Events, StCost, TCost) :- % werkt TODO implementeer study cost
     findall(T, lecturer(T, _), Teachers),
-    maplist(my_findall(Events), Teachers, Exams),
+    maplist(findall_events_for_a_teacher(Events), Teachers, Exams),
     maplist(my_correction_loop, Exams, Penalties),
     list_sum(Penalties, StCost)
     .
