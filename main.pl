@@ -9,6 +9,22 @@ list_sum([Item], Item).
 list_sum([Item1,Item2 | Tail], Total) :-
     list_sum([Item1+Item2|Tail], Total).
 
+build(_,0,[]).
+build(X,N1,[X|L]) :-
+    N1>0,
+    N is N1 - 1,
+    build(X,N,L).
+
+% take/5 take(-From, -To, -FromList, +Taken, +Rest)
+take(0, 0, _, []).
+take(0, N, [X|L], [X|O]) :-
+    N1 is N - 1,
+    take(0, N1, L, O).
+take(F, N, [_|Xs], O) :-
+    F1 is F - 1,
+    N1 is N - 1,
+    take(F1, N1, Xs, O).
+
 % converts en atom to a number so it can be compared
 exam_to_num(Exam, Num) :-
     atom_codes(Exam, [_|Codes]),
@@ -172,25 +188,27 @@ pretty_print(schedule(EventList)) :-
     predsort(event_compare, EventList, SortedEvents),
     print_loop(SortedEvents).
 
-% cost(Scedule, Cost) :- eachsoftconstraint(Schedule, Penalty),
-%                        Cost is Penalty.
+% Calculate cost for a lunchbreak both for teachers and students
 lunch_break_cost(Students, Teacher, TCost, SCost) :-
     sc_lunch_break(Teacher, TCost),
     maplist(sc_lunch_break, Students, PLst),
     list_sum(PLst, SCost).
 
+% Calculate the cost for a given teacher in a period
 period_cost(Teacher, St, End, Day, Cost) :-
     sc_no_exam_in_period(Teacher, Day, St2, End2, Cost),
     overlap(St, End, St2, End2).
-period_cost(_, _, _, _, 0).
+period_cost(_, _, _, _, 0). % If cannot unify with above it's null
 
-exam_on_day_cost([], _, _, _, _, 0).
+% Not in period soft constraint cost
+exam_on_day_cost([], _, _, _, _, 0). % End recursion
 exam_on_day_cost([Pid|Persons], Exam, Day, Start, End, Cost) :-
     sc_not_in_period(Pid, Exam, Day, Start2, End2, Penalty),
     overlap(Start, End, Start2, End2),
     exam_on_day_cost(Persons, Exam, Day, Start, End, BuildCost),
-    Cost is Penalty + BuildCost.
+    Cost is Penalty + BuildCost. % Build in backtracking
 exam_on_day_cost([_|Persons], Exam, Day, Start, End, Cost) :-
+    % Cannot unify so go through with next person
     exam_on_day_cost(Persons, Exam, Day, Start, End, Cost).
 
 exam_b2b_cost(_, T1, T2, 0) :- T1 \= T2.
@@ -251,6 +269,10 @@ b2b_teacher_cost(Teacher, Lst, Cost) :-
 same_day_teacher_cost(Teacher, Lst, Cost) :-
     on_same_day_teacher_cost(sc_same_day, Teacher, Lst, Cost).
 
+
+
+
+
 % Loop over all exams and calculate the cost for students and exams
 cost_loop([], 0, 0).
 cost_loop(EventLst, StCost, TCost) :-
@@ -261,12 +283,16 @@ cost_loop(EventLst, StCost, TCost) :-
     duration(Ex, Dur),
     End is St+Dur,
     findall(S, follows(S, Course), Students),
+    % Calculate all b2b and same day exams
+    b2b_exam(event(Ex, Rm, Day, St), Evnts, B2BExams, SameDayExams), !,
     % Calculate the cost for each soft constraint
-    lunch_break_cost(Students, Teacher, LBTcost, LBScost),
+    ((overlap(St, End, 12, 13), % If it overlaps lunchbreak, calculate cost
+      lunch_break_cost(Students, Teacher, LBTcost, LBScost));
+     (LBTcost is 0, % Otherwise lunch break cost is 0
+      LBScost is 0)),
     period_cost(Teacher, St, End, Day, PeriodCost),
     exam_on_day_cost(Students, Ex, Day, St, End, OnDayCostStudent),
     exam_on_day_cost([Teacher], Ex, Day, St, End, OnDayCostTeacher),
-    b2b_exam(event(Ex, Rm, Day, St), Evnts, B2BExams, SameDayExams), !,
     b2b_student_cost(Students, B2BExams, B2bStCost),
     b2b_teacher_cost(Teacher, B2BExams, B2bTCost),
     b2b_student_cost(Students, SameDayExams, SdStCost),
@@ -277,10 +303,69 @@ cost_loop(EventLst, StCost, TCost) :-
     StCost is BuildStcost + LBScost + OnDayCostStudent + B2bStCost + SdStCost,
     TCost is BuildTCost + LBTcost + PeriodCost + OnDayCostTeacher + B2bTCost + SdTCost.
 
+% Helpers for correction loop (see below)
+% Sets off free indices
+set_off(L, 0, L, 0).
+set_off([], Days, [], Days).
+set_off([1|Lst], Days, [0|OLst], RDay) :-
+    D1 is Days - 1,
+    D1 >= 0,
+    set_off(Lst, D1, OLst, RDay).
+set_off([0|Lst], Days, [0|OLst], RDay) :-
+    set_off(Lst, Days, OLst, RDay).
+
+% Delays the setting off of indeices
+set_off_from(0, Lst, Num, Res, ResDays) :- set_off(Lst, Num, Res, ResDays).
+set_off_from(N, [El|Lst], Num, [El|Res], ResDays) :-
+    N1 is N - 1,
+    N1 >= 0,
+    set_off_from(N1, Lst, Num, Res, ResDays).
+
+
+% Keep a FreeList form length End-St, each index represents a day in the exam
+% period, The list is initialized on 1's as being a free day to correct.
+% Each exam on a day will set the amount of days need to correct beyond the inddex
+% to zero. If no days are left the penalty will be increased.
+% Eg 5 days exam
+% [1,1,1,1,1], 0
+% Exam on day 3 takes 2 days to correct
+% [1,1,1,0,0], 0
+% Exam on day 1 Takes 1 day to correct
+% [1,0,1,0,0], 0
+% Exam on day 3 takes 3 days to correct
+% [1,0,1,0,0] 3*penalty
+correction_loop([], St, End, FreeList, 0) :-
+    Len is End - St,
+    build(1, Len, FreeList).
+correction_loop([event(Ex, _, Day, _)|Exs], St, End, FreeList, Penalty) :-
+    sc_correction_time(Ex, CorT),
+    has_exam(Course, Ex),
+    teaches(Teacher, Course),
+    correction_loop(Exs, St, End, BuiltFreeList, BuiltPenalty),
+    set_off_from(Day, BuiltFreeList, CorT, FreeList, ResDays),
+    sc_correction_penalty(Teacher, Cost),
+    Penalty is (ResDays*Cost) + BuiltPenalty.
+
+
+my_findall(Events, Teacher, ExamEvents) :-
+    findall(Ev, (teaches(Teacher, Course), has_exam(Course, Ex), member(event(Ex,Rm,Dy,St), Events), Ev = event(Ex, Rm, Dy, St)), ExamEvents).
+my_correction_loop(EvLst, Penalty) :-
+    first_day(St),
+    last_day(End),
+    correction_loop(EvLst, St, End, _, Penalty).
+cost_no_loop(Events, StCost, TCost) :-
+    findall(T, lecturer(T, _), Teachers),
+    maplist(my_findall(Events), Teachers, Exams),
+    maplist(my_correction_loop, Exams, Penalties),
+    list_sum(Penalties, StCost)
+    .
+
+
 % Calculate the cost for a schedule
 cost(schedule(Events), Cost) :-
     is_valid(schedule(Events)), !, % If not valid don't bother
     cost_loop(Events, StCost, TCost), % Calculate the cost for students and Exams independently
+    cost_no_loop(Events, StCost2, TCost2),
     findall(S, student(S, _), Students),
     findall(S, lecturer(S, _), Teachers),
     length(Students, NumSt),
