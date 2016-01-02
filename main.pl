@@ -335,7 +335,7 @@ set_off_from(N, [El|Lst], Num, [El|Res], ResDays) :-
 % Exam on day 3 takes 3 days to correct
 % [1,0,1,0,0] 3*penalty
 correction_loop([], St, End, FreeList, 0) :-
-    Len is End - St,
+    Len is End - St + 1,
     build(1, Len, FreeList).
 correction_loop([event(Ex, _, Day, _)|Exs], St, End, FreeList, Penalty) :-
     sc_correction_time(Ex, CorT),
@@ -346,19 +346,42 @@ correction_loop([event(Ex, _, Day, _)|Exs], St, End, FreeList, Penalty) :-
     sc_correction_penalty(Teacher, Cost),
     Penalty is (ResDays*Cost) + BuiltPenalty.
 
-
 findall_events_for_a_teacher(Events, Teacher, ExamEvents) :-
     findall(Ev, (teaches(Teacher, Course), has_exam(Course, Ex), member(event(Ex,Rm,Dy,St), Events), Ev = event(Ex, Rm, Dy, St)), ExamEvents).
-my_correction_loop(EvLst, Penalty) :-
+day_correction_loop(EvLst, Penalty) :-
     first_day(St),
     last_day(End),
     correction_loop(EvLst, St, End, _, Penalty).
-    
+
+% Similar to the correction loop but we have to reverse the freelist and the days
+study_loop([], _, St, End, FreeList, 0) :-
+    correction_loop([], St, End, FreeList, 0).
+study_loop([event(Ex, _, Day, _)|Exs], Student, Start, End, FreeList, Penalty) :-
+    sc_study_time(Ex, StudyT),
+    study_loop(Exs, Student,  Start, End, BuiltFreeList, BuiltPenalty), !,
+    reverse(BuiltFreeList, FlippedFreeList),
+    DayReversed is End - Day,
+    set_off_from(DayReversed, FlippedFreeList, StudyT, ToBeFlippedFreeList, ResDays),
+    reverse(ToBeFlippedFreeList, FreeList),
+    sc_study_penalty(Student, Cost),
+    Penalty is (ResDays*Cost) + BuiltPenalty.
+
+findall_events_for_a_student(Events, Student, ExamEvents) :-
+    findall(Ev, (follows(Student, Course), has_exam(Course, Ex), member(event(Ex,Rm,Dy,St), Events), Ev = event(Ex, Rm, Dy, St)), ExamEvents).
+day_study_loop(EvLst, Student, Penalty) :-
+    first_day(Start),
+    last_day(End),
+    study_loop(EvLst, Student, Start, End, _, Penalty).
+
 cost_no_loop(Events, StCost, TCost) :- % werkt TODO implementeer study cost
     findall(T, lecturer(T, _), Teachers),
     maplist(findall_events_for_a_teacher(Events), Teachers, Exams),
-    maplist(my_correction_loop, Exams, Penalties),
-    list_sum(Penalties, StCost)
+    maplist(day_correction_loop, Exams, Penalties),
+    list_sum(Penalties, TCost),
+    findall(S, student(S, _), Students),
+    maplist(findall_events_for_a_student(Events), Students, SExams),
+    maplist(day_study_loop, SExams, Students, Penalties2),
+    list_sum(Penalties2, StCost)
     .
 
 
@@ -371,5 +394,7 @@ cost(schedule(Events), Cost) :-
     findall(S, lecturer(S, _), Teachers),
     length(Students, NumSt),
     length(Teachers, NumT),
+    TotStCost is StCost + StCost2,
+    TotTCost is TCost + TCost2,
     % Calculate sum as given in the assignment
-    Cost is (StCost/(NumSt*2)) + (TCost/NumT).
+    Cost is (TotStCost/(NumSt*2)) + (TotTCost/NumT).
