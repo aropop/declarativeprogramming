@@ -295,8 +295,8 @@ cost_loop(EventLst, StCost, TCost) :-
     exam_on_day_cost([Teacher], Ex, Day, St, End, OnDayCostTeacher),
     b2b_student_cost(Students, B2BExams, B2bStCost),
     b2b_teacher_cost(Teacher, B2BExams, B2bTCost),
-    b2b_student_cost(Students, SameDayExams, SdStCost),
-    b2b_teacher_cost(Teacher, SameDayExams, SdTCost),
+    same_day_student_cost(Students, SameDayExams, SdStCost),
+    same_day_teacher_cost(Teacher, SameDayExams, SdTCost),
     % Go deeper in recursion
     cost_loop(Evnts, BuildStcost, BuildTCost),
     % Sum the costs from this iteration and the previously calculated ones
@@ -316,6 +316,7 @@ set_off([0|Lst], Days, [0|OLst], RDay) :-
 
 % Delays the setting off of indeices
 set_off_from(0, Lst, Num, Res, ResDays) :- set_off(Lst, Num, Res, ResDays).
+
 set_off_from(N, [El|Lst], Num, [El|Res], ResDays) :-
     N1 is N - 1,
     N1 >= 0,
@@ -335,7 +336,7 @@ set_off_from(N, [El|Lst], Num, [El|Res], ResDays) :-
 % Exam on day 3 takes 3 days to correct
 % [1,0,1,0,0] 3*penalty
 correction_loop([], St, End, FreeList, 0) :-
-    Len is End - St + 1,
+    Len is (End - St)+1,
     build(1, Len, FreeList).
 correction_loop([event(Ex, _, Day, _)|Exs], St, End, FreeList, Penalty) :-
     sc_correction_time(Ex, CorT),
@@ -360,28 +361,35 @@ study_loop([event(Ex, _, Day, _)|Exs], Student, Start, End, FreeList, Penalty) :
     sc_study_time(Ex, StudyT),
     study_loop(Exs, Student,  Start, End, BuiltFreeList, BuiltPenalty), !,
     reverse(BuiltFreeList, FlippedFreeList),
-    DayReversed is End - Day,
-    set_off_from(DayReversed, FlippedFreeList, StudyT, ToBeFlippedFreeList, ResDays),
+    DayReversed is (End - Day) + 1,
+    DayIdx is DayReversed,
+    set_off_from(DayIdx, FlippedFreeList, StudyT, ToBeFlippedFreeList, ResDays),
     reverse(ToBeFlippedFreeList, FreeList),
     sc_study_penalty(Student, Cost),
     Penalty is (ResDays*Cost) + BuiltPenalty.
 
+% findall exam events for a student in a list of events
 findall_events_for_a_student(Events, Student, ExamEvents) :-
     findall(Ev, (follows(Student, Course), has_exam(Course, Ex), member(event(Ex,Rm,Dy,St), Events), Ev = event(Ex, Rm, Dy, St)), ExamEvents).
+% Fill in the days so it can be used in maplist
 day_study_loop(EvLst, Student, Penalty) :-
     first_day(Start),
     last_day(End),
     study_loop(EvLst, Student, Start, End, _, Penalty).
 
-cost_no_loop(Events, StCost, TCost) :- % werkt TODO implementeer study cost
+% Calculate the costs for soft contstraints where we dont have to loop over the
+% Events traditionally. (correction time and study time)
+cost_no_loop(Events, StCost, TCost) :-
+    % For each teacher, find his exams and calculate the correction time penalty
     findall(T, lecturer(T, _), Teachers),
     maplist(findall_events_for_a_teacher(Events), Teachers, Exams),
     maplist(day_correction_loop, Exams, Penalties),
-    list_sum(Penalties, TCost),
+    list_sum(Penalties, TCost), % Sum penalties
+    % For each student, find his exams and calculate the study time penalty
     findall(S, student(S, _), Students),
     maplist(findall_events_for_a_student(Events), Students, SExams),
     maplist(day_study_loop, SExams, Students, Penalties2),
-    list_sum(Penalties2, StCost)
+    list_sum(Penalties2, StCost) % Sum Penalties
     .
 
 

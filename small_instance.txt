@@ -49,7 +49,7 @@ follows(Student,c5) :- student(Student,_). %every student follows Languages
 teaches(l1,c1).
 teaches(l1,c2).
 teaches(l2,c3).
-teaches(l2,c4).
+teaches(l3,c4).
 teaches(l4,c5).
 
 capacity(r1,2).
