@@ -343,6 +343,8 @@ correction_loop([event(Ex, _, Day, _)|Exs], St, End, FreeList, Penalty) :-
     has_exam(Course, Ex),
     teaches(Teacher, Course),
     correction_loop(Exs, St, End, BuiltFreeList, BuiltPenalty),
+    %DayIdx is Day -1,
+    %set_off_from(DayIdx, BuiltFreeList, CorT, FreeList, ResDays),
     set_off_from(Day, BuiltFreeList, CorT, FreeList, ResDays),
     sc_correction_penalty(Teacher, Cost),
     Penalty is (ResDays*Cost) + BuiltPenalty.
@@ -405,4 +407,4 @@ cost(schedule(Events), Cost) :-
     TotStCost is StCost + StCost2,
     TotTCost is TCost + TCost2,
     % Calculate sum as given in the assignment
-    Cost is (TotStCost/(NumSt*2)) + (TotTCost/NumT).
+    Cost is ((TotStCost/(NumSt)) + (TotTCost/NumT))/2.
