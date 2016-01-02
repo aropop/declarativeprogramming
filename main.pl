@@ -1,4 +1,6 @@
 :- use_module(library(apply)).
+
+% Deletes one element from a list
 delete_one(_, [], []).
 delete_one(Term, [Term|Tail], Tail).
 delete_one(Term, [Head|Tail], [Head|Result]) :-
@@ -9,6 +11,8 @@ list_sum([Item], Item).
 list_sum([Item1,Item2 | Tail], Total) :-
     list_sum([Item1+Item2|Tail], Total).
 
+% Build/3 +Val, +N, -List
+% Builds a list of length N with all elements equal to Val
 build(_,0,[]).
 build(X,N1,[X|L]) :-
     N1>0,
@@ -108,30 +112,35 @@ check_against_others(Students, Teacher, [event(Ex, _, Day, Start2)|Events], Star
     duration(Ex, Dur),
     has_exam(Course, Ex),
     End2 is Start2+Dur,
-    overlap(Start, End, Start2, End2), % Overlaps, check if same student
+    overlap(Start, End, Start2, End2), % Overlaps, check if same student or teacher
     findall(S, follows(S, Course), Students2),
     intersection(Students, Students2, Ints),
     length(Ints, L),
     L == 0,
     teaches(Teacher2, Course),
     Teacher2 \== Teacher,
-    check_against_others(Students, Events, Start, End, Day).
+    check_against_others(Students, Teacher, Events, Start, End, Day).
 check_against_others(Students, Teacher, [event(Ex, _, Day1, Start1)|Events], Start2, End2, Day2) :- % Not overlapping
     ((Day1 \== Day2);
      (Day1 == Day2,
       duration(Ex, Dur),
       End1 is Start1 + Dur,
       not(overlap(Start2, End2, Start1, End1)))),
+    %Still have to go deeper n the recursion (might overlap with others)
     check_against_others(Students, Teacher, Events, Start2, End2, Day2).
 
+% Checks wether 2 exams are at the same time
 check_same_time(schedule([])).
 check_same_time(schedule([event(Ex, _, Day, Start)|Tail])) :-
+    % Get the info about the first exam
     has_exam(Course, Ex),
     duration(Ex, Dur),
     teaches(Teacher, Course),
     findall(S, follows(S, Course), Students),
     End is Start+Dur,
+    % Check with the other exams in the list
     check_against_others(Students, Teacher, Tail, Start, End, Day),
+    % Go deeper in the recursion
     check_same_time(schedule(Tail)).
 
 % Do least demanding tests first
