@@ -4,9 +4,11 @@
 delete_one(_, [], []).
 delete_one(Term, [Term|Tail], Tail).
 delete_one(Term, [Head|Tail], [Head|Result]) :-
-    delete_one(Term, Tail, Result).
+    delete_one(Term, Tail, Result),
+    !.
 
 % Sums a list
+list_sum([], 0).
 list_sum([Item], Item).
 list_sum([Item1,Item2 | Tail], Total) :-
     list_sum([Item1+Item2|Tail], Total).
@@ -38,29 +40,34 @@ exam_to_num(Exam, Num) :-
 schedule_to_exam_lst(schedule([]), []).
 schedule_to_exam_lst(schedule([event(E, _, _, St)|Tail]), [E|Res]) :-
     integer(St),
-    schedule_to_exam_lst(schedule(Tail), Res).
+    schedule_to_exam_lst(schedule(Tail), Res),
+    !.
+
 % Converts a schedule to a list of rooms
 schedule_to_room_lst(schedule([]), []).
-schedule_to_room_lst(schedule([event(_, R, _, _)|Tail]), [R|Res]) :- schedule_to_room_lst(schedule(Tail), Res).
+schedule_to_room_lst(schedule([event(_, R, _, _)|Tail]), [R|Res]) :-
+    schedule_to_room_lst(schedule(Tail), Res).
 % Invert parameter order for maplist
 has_exam_inv(E,C) :- has_exam(C,E).
 % Converts a schedule to a list of Courses
 schedule_to_course_lst(Schedules, Courses) :- schedule_to_exam_lst(Schedules, Exams),
                                               maplist(has_exam_inv, Exams,  Courses).
-% Checks if all exams are in a schedule and wether it consits of integer start hours
+% Checks if all exams are in a schedule and wether it consists of integer start hours
 check_all(Schedule) :- schedule_to_exam_lst(Schedule, Lst),
+                       !,
                        findall(Exam, exam(Exam,_), Exams),
                        permutation(Exams, Lst).
 
 
-% Checks if an element is onlly once in a list
+% Checks if an element is only once in a list
 is_scheduled_once(Exam, Lst) :- delete_one(Exam, Lst, R),
                                 not(member(Exam, R)).
 % Takes two lists, Takes an element of the first one and checks if it is only
 % Scheduled once. The second list is thus a list of all exams
 schedule_map([], _).
 schedule_map([El|Tail], Total) :- is_scheduled_once(El, Total),
-                                  schedule_map(Tail, Total).
+                                  schedule_map(Tail, Total),
+                                  !.
 check_once(Schedule) :- schedule_to_exam_lst(Schedule, Lst),
                         schedule_map(Lst, Lst).
 
@@ -144,11 +151,11 @@ check_same_time(schedule([event(Ex, _, Day, Start)|Tail])) :-
     check_same_time(schedule(Tail)).
 
 % Do least demanding tests first
-is_valid(Schedule) :- check_all(Schedule),!,
-                      check_once(Schedule),!,
-                      check_capacity(Schedule),!,
-                      check_availability(Schedule),!,
-                      check_two_exams_same_room(Schedule),!,
+is_valid(Schedule) :- check_all(Schedule),
+                      check_once(Schedule),
+                      check_capacity(Schedule),
+                      check_availability(Schedule),
+                      check_two_exams_same_room(Schedule),
                       check_same_time(Schedule).
 
 % Compare 2 events
@@ -417,3 +424,39 @@ cost(schedule(Events), Cost) :-
     TotTCost is TCost + TCost2,
     % Calculate sum as given in the assignment
     Cost is ((TotStCost/(NumSt)) + (TotTCost/NumT))/2.
+
+
+
+% Generate solutions
+gen_schedule(Schedule) :-
+    findall(E, exam(E, _), Exams),
+    maplist(gen_event, Exams, Events),
+    Schedule = schedule(Events).
+gen_event(Ex, Event) :-
+    room(Room, _),
+    first_day(FDay),
+    last_day(LDay),
+    between(FDay, LDay, Day),
+    availability(Room, Day, SHour, EHour), % Make sure to no go through every possible hour 1-24
+    between(SHour, EHour, Hour),
+    Event = event(Ex, Room, Day, Hour).
+
+:- dynamic best/2.
+
+find_optimal(_) :-
+    assert(best(nil,99999999999)),  % Assuming that no schedule has a bigger cost then this
+    gen_schedule(S),
+    cost(S,CostS),
+    update_best(S,CostS),
+    fail.
+find_optimal(S) :-
+    best(S,_),
+    retract(best(_,_)).
+
+update_best(S,CostS) :-
+    best(_,LowestCost),
+    CostS < LowestCost,
+    !,
+    retract(best(_,_)),
+    assert(best(S,CostS)).
+update_best(_,_).
