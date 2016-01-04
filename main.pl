@@ -227,21 +227,13 @@ exam_on_day_cost([_|Persons], Exam, Day, Start, End, Cost) :-
     % Cannot unify so go through with next person
     exam_on_day_cost(Persons, Exam, Day, Start, End, Cost).
 
-exam_b2b_cost(_, T1, T2, 0) :- T1 \= T2.
-exam_b2b_cost([], _, _, 0).
-exam_b2b_cost([Pid|Persons], End, St, Cost) :-
-    sc_b2b(Pid, Penalty),
-    exam_b2b_cost(Persons, End, St, BuildCost),
-    Cost is Penalty + BuildCost.
-exam_b2b_cost([_|Persons], End, St, Cost) :-
-    exam_b2b_cost(Persons, End, St, Cost).
 
 % finds all b2b exams and samedayexams
 b2b_exam(event(Ex, _, Day, Start), Events, B2BExams, SameDayExams) :-
     duration(Ex, Dur),
     End is Start + Dur,
     findall(Y, member(event(Y, _, Day, _), Events), SameDayExams), !,
-    findall(X, member(event(X, _, Day, End), SameDayExams), B2BExams).
+    findall(X, (member(event(X, _, Day, End), Events); member(event(X, _, Day, MySt), Events), duration(X, MyDur), Start is MySt + MyDur), B2BExams).
 
 % Abstract predicate
 % Pred is a predicate that returns a Penalty for a given Student (e.g. sc_b2b)
@@ -287,8 +279,6 @@ same_day_teacher_cost(Teacher, Lst, Cost) :-
 
 
 
-
-
 % Loop over all exams and calculate the cost for students and exams
 cost_loop([], 0, 0).
 cost_loop(EventLst, StCost, TCost) :-
@@ -317,7 +307,8 @@ cost_loop(EventLst, StCost, TCost) :-
     cost_loop(Evnts, BuildStcost, BuildTCost),
     % Sum the costs from this iteration and the previously calculated ones
     StCost is BuildStcost + LBScost + OnDayCostStudent + B2bStCost + SdStCost,
-    TCost is BuildTCost + LBTcost + PeriodCost + OnDayCostTeacher + B2bTCost + SdTCost.
+    TCost is BuildTCost + LBTcost + PeriodCost + OnDayCostTeacher + B2bTCost + SdTCost,
+    !.
 
 % Helpers for correction loop (see below)
 % Sets off free indices
@@ -432,14 +423,16 @@ gen_schedule(Schedule) :-
     findall(E, exam(E, _), Exams),
     maplist(gen_event, Exams, Events),
     Schedule = schedule(Events).
-gen_event(Ex, Event) :-
+gen_event(Ex, event(Ex, Room, Day, Hour)) :-
     room(Room, _),
     first_day(FDay),
     last_day(LDay),
     between(FDay, LDay, Day),
     availability(Room, Day, SHour, EHour), % Make sure to no go through every possible hour 1-24
     between(SHour, EHour, Hour),
-    Event = event(Ex, Room, Day, Hour).
+    duration(Ex, Dur),
+    End is Hour + Dur,
+    End =< EHour.
 
 :- dynamic best/2.
 
