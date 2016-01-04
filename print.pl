@@ -24,15 +24,16 @@ print_day(Lst) :-
     exclude(compare_room(R), Events, EventsInOtherRooms),
     print_day(EventsInOtherRooms).
 
-compare_day(Day, event(_,_,Day,_)).
+compare_day(Day, event(_,_,Day,_)). % Used for include and exclude of events
 
 % Prints all events per day
 print_loop([]).
 print_loop(Lst) :-
     Lst = [event(_, _, D, _)|Events],
-    include(compare_day(D), Lst, EventsOnDay),
+    include(compare_day(D), Lst, EventsOnDay), % Only use the events on this day
     format('Day ~w: ~n', [D]),
-    print_day(EventsOnDay),
+    print_day(EventsOnDay), % Print all events on this day
+    % Continue with other days
     exclude(compare_day(D), Events, EventsOnOtherDays),
     print_loop(EventsOnOtherDays).
 

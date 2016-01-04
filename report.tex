@@ -25,10 +25,11 @@ To load the appropriate data file (which is required to make the project run), t
 \end{lstlisting}
 
 \section{Implementation}
-For this assignment 4 predicates were developed: is\_valid/1, cost/2, find\_optimal/1 and pretty\_print/1 each of these predicates is developed in a different module. There is however a fifth module util which contains auxiliary predicates used in the other modules.
+For this assignment 4 predicates were developed: is\_valid/1, cost/2, find\_optimal/1 and pretty\_print/1 each of these predicates is developed in a different module. There is however a fifth module util which contains auxiliary predicates used in the other modules.\\
+In the prolog code the predicates are denoted using snake case (e.g. check\_all) and variables are denoted using camel case (e.g. TeacherExams). Also note that the specifics of the implementation (the overview of all algorithms is) are not discussed in this document. For this the code is documented such that implementation details become clear when reading the code.
 
 \subsection{Is Valid}
-The is valid predicate will check if a certain exam schedule is conform to the hard constraints defined in the assignment\footnote{\url{https://ai.vub.ac.be/node/1466}}. Because this predicate requires for the schedule to be given (it does not implement the extension desribed in the assignment), it tries to unify with different checks. This way the problem is split into different parts. These parts are explained below:
+The is valid predicate will check if a certain exam schedule is conform to the hard constraints defined in the assignment\footnote{\url{https://ai.vub.ac.be/node/1466}}. Because this predicate requires for the schedule to be given (it does not implement the extension described in the assignment), it tries to unify with different checks. This way the problem is split into different parts. These parts are explained below:
 \begin{itemize}
 	\item \emph{check\_all} Checks whether all exams are scheduled.
 	\item \emph{check\_once}  Checks whether all exams are scheduled only once.
@@ -38,6 +39,33 @@ The is valid predicate will check if a certain exam schedule is conform to the h
 	\item \emph{check\_same\_time} Checks if no teacher or student has an exam at the same time.
 \end{itemize}
 
-\subsection{Is Valid}
+\subsection{Cost}
+The cost predicate takes a certain schedule and returns its cost. It cannot generate certain schedules for a certain cost. It will fail when an invalid schedule is passed. The cost predicate has two main parts. The cost\_loop predicate will calculate all costs that can be calculated for each event individually. The cost\_no\_loop predicate will calculate the costs that cannot be calculated for each event individually. \\
+The cost\_loop predicate will loop over all the events in a schedule. It will then calculate the cost of following soft constraints for each event: sc\_b2b, sc\_lunch\_break, sc\_no\_exam\_in\_period and sc\_not\_in\_period. Each of these sub-costs are divided into a student cost and a teacher cost. These have to be separated to be used in the formula as required in the assignment. For the on same day and b2b cost there is an abstract predicate (on\_same\_day\_student\_cost and on\_same\_day\_teacher\_cost) because both are very similar.\\
+The cost\_no\_loop predicate will calculate the student and teacher cost for, respectively, the study and correction time soft constraints. To calculate these a freelist is used. This is a list the length of the exam period, which is initially only contains ones. For each day used to study, a one will be ``switched off''. The remaining days will then be used to calculate the cost for each student or teacher.
 
+\subsection{Pretty Print}
+The pretty print predicate will print a schedule and always return true (unless it receives a badly formated schedule). For this it will print for each day in each room the different exams with their start and end time. The pretty print predicate will sort the schedule first such that it is in chronological order. To print the information on the screen, the built-in predicate format/2 is used. An example of the output:
+\begin{lstlisting}[basicstyle=\small,language=prolog]
+?- pretty_print(schedule([event(e1, r2, 3, 10),
+ event(e2, r2, 2, 10),
+ event(e3, r1, 5, 10),
+ event(e4, r1, 4, 10),
+ event(e5, r2, 3, 12)])).
+Day 2: 
+Room Large room: e2 at 10 until 12, 
+
+Day 3: 
+Room Large room: e1 at 10 until 12, e5 at 12 until 14, 
+
+Day 4: 
+Room Small room: e4 at 10 until 12, 
+
+Day 5: 
+Room Small room: e3 at 10 until 12, 
+\end{lstlisting}
+
+\subsection{Find Optimal}
+The find optimal predicate is derived from the one that was created in the lab sessions. The algorithm is quite simple: We assert the best solution so far is nil with an initely high cost. Then we generate all possible schedules and when the schedules cost is lower then the best so far we replace the best so far with the current schedule. At the end the best schedule will be returned. For this the asserted variable (best) should be dynamic.\\
+To increase the performance of this solution the generate schedule predicate will only generate events that can take place in an available room during the whole duration of the exam. The find optimal predicate takes about 30 seconds on the small instance data set to find a solution.
 \end{document}

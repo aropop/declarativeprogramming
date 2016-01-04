@@ -3,18 +3,17 @@
 
 % Helpers for correction loop (see below)
 % Sets off free indices
-set_off(L, 0, L, 0).
-set_off([], Days, [], Days).
-set_off([1|Lst], Days, [0|OLst], RDay) :-
+set_off(L, 0, L, 0). % Stop when all days are put off in the freelist
+set_off([], Days, [], Days). % Add the days to res days when we reached the end of the freelist
+set_off([1|Lst], Days, [0|OLst], RDay) :- % Put element to zero and decrease the elemnts to put off
     D1 is Days - 1,
     D1 >= 0,
     set_off(Lst, D1, OLst, RDay).
-set_off([0|Lst], Days, [0|OLst], RDay) :-
+set_off([0|Lst], Days, [0|OLst], RDay) :- % when already zero continiue recursion
     set_off(Lst, Days, OLst, RDay).
 
-% Delays the setting off of indeices
+% Delays the setting off of indices
 set_off_from(0, Lst, Num, Res, ResDays) :- set_off(Lst, Num, Res, ResDays).
-
 set_off_from(N, [El|Lst], Num, [El|Res], ResDays) :-
     N1 is N - 1,
     N1 >= 0,
@@ -40,15 +39,18 @@ correction_loop([event(Ex, _, Day, _)|Exs], St, End, FreeList, Penalty) :-
     sc_correction_time(Ex, CorT),
     has_exam(Course, Ex),
     teaches(Teacher, Course),
+    % Go deeper in the recursion
     correction_loop(Exs, St, End, BuiltFreeList, BuiltPenalty),
-    %DayIdx is Day -1,
-    %set_off_from(DayIdx, BuiltFreeList, CorT, FreeList, ResDays),
+    % Calculate amount of extra days using the freelist
     set_off_from(Day, BuiltFreeList, CorT, FreeList, ResDays),
+    % Calculate cost for extra days
     sc_correction_penalty(Teacher, Cost),
     Penalty is (ResDays*Cost) + BuiltPenalty.
 
+% Returns all events for a teacher
 findall_events_for_a_teacher(Events, Teacher, ExamEvents) :-
     findall(Ev, (teaches(Teacher, Course), has_exam(Course, Ex), member(event(Ex,Rm,Dy,St), Events), Ev = event(Ex, Rm, Dy, St)), ExamEvents).
+% Fills in the correction loop with the start and end day of the exam period
 day_correction_loop(EvLst, Penalty) :-
     first_day(St),
     last_day(End),
@@ -60,11 +62,12 @@ study_loop([], _, St, End, FreeList, 0) :-
 study_loop([event(Ex, _, Day, _)|Exs], Student, Start, End, FreeList, Penalty) :-
     sc_study_time(Ex, StudyT),
     study_loop(Exs, Student,  Start, End, BuiltFreeList, BuiltPenalty), !,
+    % Reverse the freelist because students want more days in the beginning of the freelist
     reverse(BuiltFreeList, FlippedFreeList),
-    DayReversed is (End - Day) + 1,
+    DayReversed is (End - Day) + 1, % Fix index
     DayIdx is DayReversed,
     set_off_from(DayIdx, FlippedFreeList, StudyT, ToBeFlippedFreeList, ResDays),
-    reverse(ToBeFlippedFreeList, FreeList),
+    reverse(ToBeFlippedFreeList, FreeList), % Reverse the list to continue
     sc_study_penalty(Student, Cost),
     Penalty is (ResDays*Cost) + BuiltPenalty.
 
@@ -129,14 +132,18 @@ b2b_exam(event(Ex, _, Day, Start), Events, B2BExams, SameDayExams) :-
 on_same_day_student_cost(_, _, [], 0).
 on_same_day_student_cost(Pred, Students, [Ex|Lst], Cost) :-
     has_exam(Course, Ex),
+    % find all students following both courses
     findall(S, follows(S, Course), OtherStudents),
     intersection(Students, OtherStudents, Overlap),
+    % Map the penalty over all students
     maplist(Pred, Overlap, Costs),
+    % Sum the cost
     list_sum(Costs, CurCost),
+    % get recursively
     on_same_day_student_cost(Pred, Students, Lst, BuildCost),
     Cost is CurCost + BuildCost.
 
-
+% Cost for b2b exams
 b2b_student_cost(Students, Lst, Cost) :-
     on_same_day_student_cost(sc_b2b, Students, Lst, Cost).
 
@@ -151,6 +158,8 @@ on_same_day_teacher_cost(_, _, [], 0).
 on_same_day_teacher_cost(Pred, Teacher, [Ex|Lst], Cost) :-
     has_exam(Course, Ex),
     teaches(TeacherFound, Course),
+    % Either the teachers are the same, and the cost is calculate
+    % Or we go through the recursion
     ((TeacherFound = Teacher,
       call(Pred, Teacher, Penalty),
       on_same_day_teacher_cost(Pred, Teacher, Lst, BuildCost),
@@ -184,11 +193,15 @@ cost_loop(EventLst, StCost, TCost) :-
       lunch_break_cost(Students, Teacher, LBTcost, LBScost));
      (LBTcost is 0, % Otherwise lunch break cost is 0
       LBScost is 0)),
+    % sc_no_exam_in_period
     period_cost(Teacher, St, End, Day, PeriodCost),
+    % sc_not_in_period
     exam_on_day_cost(Students, Ex, Day, St, End, OnDayCostStudent),
     exam_on_day_cost([Teacher], Ex, Day, St, End, OnDayCostTeacher),
+    % sc_b2b
     b2b_student_cost(Students, B2BExams, B2bStCost),
     b2b_teacher_cost(Teacher, B2BExams, B2bTCost),
+    % sc_same_day
     same_day_student_cost(Students, SameDayExams, SdStCost),
     same_day_teacher_cost(Teacher, SameDayExams, SdTCost),
     % Go deeper in recursion
