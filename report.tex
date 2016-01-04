@@ -1,0 +1,43 @@
+\documentclass[11pt]{article}
+\usepackage{hyperref}
+\usepackage{listings}
+
+\title{Report Project Declarative Programming}
+\author{Arno De Witte}
+\date{}
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+The assignment for this project was to create a program which validates, prints and finds exam schedules. The program is written in Prolog and is aimed for the SWI Prolog\footnote{\url{http://www.swi-prolog.org/}} implementation.
+
+\section{Running}
+The program is split into different modules, one for each function. It's possible to run each module independently or use the \emph{main} module which exports all features. To start the program SWI prolog should be installed. When starting the program the data set should also be passed. Following command will start the program:
+
+\begin{lstlisting}[language=bash]
+prolog main.pl
+\end{lstlisting}
+To load the appropriate data file (which is required to make the project run), the consult predicate should be used as follows:
+
+\begin{lstlisting}[language=prolog]
+? consult('small_instance.txt').
+\end{lstlisting}
+
+\section{Implementation}
+For this assignment 4 predicates were developed: is\_valid/1, cost/2, find\_optimal/1 and pretty\_print/1 each of these predicates is developed in a different module. There is however a fifth module util which contains auxiliary predicates used in the other modules.
+
+\subsection{Is Valid}
+The is valid predicate will check if a certain exam schedule is conform to the hard constraints defined in the assignment\footnote{\url{https://ai.vub.ac.be/node/1466}}. Because this predicate requires for the schedule to be given (it does not implement the extension desribed in the assignment), it tries to unify with different checks. This way the problem is split into different parts. These parts are explained below:
+\begin{itemize}
+	\item \emph{check\_all} Checks whether all exams are scheduled.
+	\item \emph{check\_once}  Checks whether all exams are scheduled only once.
+	\item \emph{check\_capacity}  Checks whether all rooms can take the amount of students.
+	\item \emph{check\_availability}  Checks whether all rooms can take the amount of students for an exam.
+	\item \emph{check\_two\_exams\_same\_room}  Checks whether there aren't two exams planned in the same room at the same time.
+	\item \emph{check\_same\_time} Checks if no teacher or student has an exam at the same time.
+\end{itemize}
+
+\subsection{Is Valid}
+
+\end{document}

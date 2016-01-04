@@ -33,23 +33,28 @@ check_capacity(Schedule) :- schedule_to_course_lst(Schedule, Clist),
                             schedule_to_room_lst(Schedule, Rlist),
                             capacity_map(Rlist, Clist).
 
-% Check if the room is available
-is_available(Room, Day, Start, Duration) :- End is Start + Duration,
-                                            availability(Room, Day, ForseenSt, ForseenEnd),
-                                            ForseenEnd >= End,
-                                            Start >= ForseenSt.
+% Check if a single room is available at a certain moment
+is_available(Room, Day, Start, Duration) :-
+    End is Start + Duration,
+    availability(Room, Day, ForseenSt, ForseenEnd),
+    ForseenEnd >= End,
+    Start >= ForseenSt.
+
+% Loop over all rooms to check whether they are available
 check_availability(schedule([])).
-check_availability(schedule([event(E, R, D, H)|Elist])) :- duration(E, Dur),
-                                                           is_available(R, D, H, Dur),
-                                                           check_availability(schedule(Elist)).
+check_availability(schedule([event(E, R, D, H)|Elist])) :-
+    duration(E, Dur),
+    is_available(R, D, H, Dur),
+    check_availability(schedule(Elist)).
 
 % Check 2 exams same time in same room
 check_two_exams_same_room(schedule([])).
-check_two_exams_same_room(schedule([H|T])) :- fit_lst(H, T),
-                                              check_two_exams_same_room(schedule(T)).
+check_two_exams_same_room(schedule([H|T])) :-
+    fit_lst(H, T), % Check if the exam fits against the other exams in the list
+    check_two_exams_same_room(schedule(T)).
 
 
-% Check student at the same time
+% Check for a group of students and a teacher if there is an exam at the same time
 check_against_others(_, _, [], _, _, _). % Rec end
 check_against_others(Students, Teacher, [event(Ex, _, Day, Start2)|Events], Start, End, Day) :- % Unifies if days are the same
     % Check overlap
@@ -58,14 +63,15 @@ check_against_others(Students, Teacher, [event(Ex, _, Day, Start2)|Events], Star
     End2 is Start2+Dur,
     overlap(Start, End, Start2, End2), % Overlaps, check if same student or teacher
     findall(S, follows(S, Course), Students2),
-    intersection(Students, Students2, Ints),
+    intersection(Students, Students2, Ints), % intersect original group of students and students of exam checked
     length(Ints, L),
-    L == 0,
+    L == 0, % The intersect should have no students
     teaches(Teacher2, Course),
-    Teacher2 \== Teacher,
-    check_against_others(Students, Teacher, Events, Start, End, Day).
-check_against_others(Students, Teacher, [event(Ex, _, Day1, Start1)|Events], Start2, End2, Day2) :- % Not overlapping
-    ((Day1 \== Day2);
+    Teacher2 \== Teacher, % Teacher of these exams should be different
+    check_against_others(Students, Teacher, Events, Start, End, Day). % check recursively
+% Not overlapping (Exams are not held at the same time), we should still continue the recursion to check against all other exams
+check_against_others(Students, Teacher, [event(Ex, _, Day1, Start1)|Events], Start2, End2, Day2) :-
+    ((Day1 \== Day2); % Only unify if not overlapping
      (Day1 == Day2,
       duration(Ex, Dur),
       End1 is Start1 + Dur,
