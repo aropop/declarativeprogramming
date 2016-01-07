@@ -6,8 +6,8 @@
 % Checks if all exams are in a schedule and whether they are only scheduled once
 check_all(schedule(Events)) :-
     findall(Exam, exam(Exam,_), Exams), % Makes sure only to get all exams once
-    permutation(Exams, Lst), % Enforces that all exams are scheduled and scheduled only once
-    maplist(exam_from_event, Events, Lst).
+    maplist(exam_from_event, Events, Lst),
+    permutation(Exams, Lst). % Enforces that all exams are scheduled and scheduled only once
 
 
 % Checks if the scheduled rooms can fit the people in the courses

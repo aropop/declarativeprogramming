@@ -214,7 +214,7 @@ cost_loop(EventLst, StCost, TCost) :-
 
 % Calculate the cost for a schedule
 cost(schedule(Events), Cost) :-
-    %is_valid(schedule(Events)), !, % If not valid don't bother
+    is_valid(schedule(Events)), !, % If not valid don't bother
     cost_loop(Events, StCost, TCost), % Calculate the cost for students and Exams independently
     cost_no_loop(Events, StCost2, TCost2),
     findall(S, student(S, _), Students),
