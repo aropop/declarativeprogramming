@@ -1,4 +1,4 @@
-:- module(util, [delete_one/3, list_sum/2, build/3, take/4, exam_to_num/2, event_compare/3, schedule_to_exam_lst/2, schedule_to_course_lst/2, schedule_to_room_lst/2, overlap/4, has_exam_inv/2, fit_lst/2, fit/2]).
+:- module(util, [delete_one/3, list_sum/2, build/3, take/4, exam_to_num/2, event_compare/3, exam_from_event/2, overlap/4, has_exam_inv/2, fit_lst/2, fit/2]).
 
 % Deletes one element from a list
 delete_one(_, [], []).
@@ -42,22 +42,7 @@ event_compare(C, event(E1, _, Day1, Start1), event(E2, _, Day2, Start2)) :-
     (compare(C, Start1, Start2), C \= =);
     (exam_to_num(E1, Num1), exam_to_num(E2, Num2), compare(C, Num1, Num2)).
 
-% Conversions for schedules, only converts if Start is an integer
-schedule_to_exam_lst(schedule([]), []).
-schedule_to_exam_lst(schedule([event(E, _, _, St)|Tail]), [E|Res]) :-
-    integer(St),
-    schedule_to_exam_lst(schedule(Tail), Res),
-    !.
-
-% Converts a schedule to a list of rooms
-schedule_to_room_lst(schedule([]), []).
-schedule_to_room_lst(schedule([event(_, R, _, _)|Tail]), [R|Res]) :-
-    schedule_to_room_lst(schedule(Tail), Res).
-
-% Converts a schedule to a list of Courses
-schedule_to_course_lst(Schedules, Courses) :- schedule_to_exam_lst(Schedules, Exams),
-                                              maplist(has_exam_inv, Exams,  Courses).
-
+exam_from_event(event(E, _, _, _), E).
 
 % Check if 2 times overlap
 overlap(Start1, End1, Start2, End2) :-
