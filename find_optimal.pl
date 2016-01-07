@@ -21,10 +21,10 @@ gen_event(Ex, event(Ex, Room, Day, Hour)) :-
 
 find_optimal(_) :-
     assert(best(nil,99999999999)),  % Assuming that no schedule has a bigger cost then this
-    gen_schedule(S),
-    cost(S,CostS),
-    update_best(S,CostS),
-    fail.
+    gen_schedule(S), % Generate a schedule
+    cost(S,CostS), % Calculate cost
+    update_best(S,CostS), % Find Best cost
+    fail. % Loop till best found
 find_optimal(S) :-
     best(S,_),
     retract(best(_,_)).
