@@ -66,6 +66,6 @@ Room Small room: e3 at 10 until 12,
 \end{lstlisting}
 
 \subsection{Find Optimal}
-The find optimal predicate is derived from the one that was created in the lab sessions. The algorithm is quite simple: We assert the best solution so far is nil with an initely high cost. Then we generate all possible schedules and when the schedules cost is lower then the best so far we replace the best so far with the current schedule. At the end the best schedule will be returned. For this the asserted variable (best) should be dynamic.\\
+The find optimal predicate is derived from the one that was created in the lab sessions. The algorithm is quite simple: We assert the best solution so far is nil with an initially high cost. Then we generate all possible schedules and when the schedules cost is lower then the best so far we replace the best so far with the current schedule. At the end the best schedule will be returned. For this the asserted variable (best) should be dynamic.\\
 To increase the performance of this solution the generate schedule predicate will only generate events that can take place in an available room during the whole duration of the exam. The find optimal predicate takes about 30 seconds on the small instance data set to find a solution.
 \end{document}
