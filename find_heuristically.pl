@@ -60,7 +60,7 @@ find_heuristically(S) :-
 % Local search loop
 localsearch(InitS, CostI,  S) :-
 % Calc new scheds
-    maximize_over_n(3, InitS, NewSched, CostN), % Compare with 3 random valid schedules
+    maximize_over_n(5, InitS, NewSched, CostN), % Compare with 5 random valid schedules
     ((CostI  =< CostN,
       InitS = S);
      (localsearch(NewSched, CostN, S))).
