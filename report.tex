@@ -29,15 +29,14 @@ For this assignment 4 predicates were developed: is\_valid/1, cost/2, find\_opti
 In the prolog code the predicates are denoted using snake case (e.g. check\_all) and variables are denoted using camel case (e.g. TeacherExams). Also note that the specifics of the implementation (the overview of all algorithms is) are not discussed in this document. For this the code is documented such that implementation details become clear when reading the code.
 
 \subsection{Is Valid}
-The is valid predicate will check if a certain exam schedule is conform to the hard constraints defined in the assignment\footnote{\url{https://ai.vub.ac.be/node/1466}}. Because this predicate requires for the schedule to be given (it does not implement the extension described in the assignment), it tries to unify with different checks. This way the problem is split into different parts. These parts are explained below:
+The is valid predicate will check if a certain exam schedule is conform to the hard constraints defined in the assignment\footnote{\url{https://ai.vub.ac.be/node/1466}}. It tries to unify with different checks. This way the problem is split into different parts. These parts are explained below:
 \begin{itemize}
-	\item \emph{check\_all} Checks whether all exams are scheduled.
-	\item \emph{check\_once}  Checks whether all exams are scheduled only once.
+	\item \emph{check\_all} Checks whether all exams are scheduled and only scheduled once.
 	\item \emph{check\_capacity}  Checks whether all rooms can take the amount of students.
 	\item \emph{check\_availability}  Checks whether all rooms can take the amount of students for an exam.
-	\item \emph{check\_two\_exams\_same\_room}  Checks whether there aren't two exams planned in the same room at the same time.
-	\item \emph{check\_same\_time} Checks if no teacher or student has an exam at the same time.
+	\item \emph{check\_same\_time} Checks if no teacher or student has an exam at the same time or that an exam is booked at the same room in an overlapping timeslot.
 \end{itemize}
+This predicate can also produces valid schedules. This is one of the extensions given in the assignment.
 
 \subsection{Cost}
 The cost predicate takes a certain schedule and returns its cost. It cannot generate certain schedules for a certain cost. It will fail when an invalid schedule is passed. The cost predicate has two main parts. The cost\_loop predicate will calculate all costs that can be calculated for each event individually. The cost\_no\_loop predicate will calculate the costs that cannot be calculated for each event individually. \\
@@ -52,17 +51,17 @@ The pretty print predicate will print a schedule and always return true (unless 
  event(e3, r1, 5, 10),
  event(e4, r1, 4, 10),
  event(e5, r2, 3, 12)])).
-Day 2: 
-Room Large room: e2 at 10 until 12, 
+Day 2:
+Room Large room: e2 at 10 until 12,
 
-Day 3: 
-Room Large room: e1 at 10 until 12, e5 at 12 until 14, 
+Day 3:
+Room Large room: e1 at 10 until 12, e5 at 12 until 14,
 
-Day 4: 
-Room Small room: e4 at 10 until 12, 
+Day 4:
+Room Small room: e4 at 10 until 12,
 
-Day 5: 
-Room Small room: e3 at 10 until 12, 
+Day 5:
+Room Small room: e3 at 10 until 12,
 \end{lstlisting}
 
 \subsection{Find Optimal}

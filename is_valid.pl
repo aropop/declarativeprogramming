@@ -43,12 +43,12 @@ check_against_others(Students, Teacher, Room, [event(Ex, OtherRoom, Day, Start2)
     End2 is Start2+Dur,
     overlap(Start, End, Start2, End2), % Overlaps, check if same student or teacher
     Room \== OtherRoom,
+    teaches(Teacher2, Course),
+    Teacher2 \== Teacher, % Teacher of these exams should be different
     findall(S, follows(S, Course), Students2),
     intersection(Students, Students2, Ints), % intersect original group of students and students of exam checked
     length(Ints, L),
     L == 0, % The intersect should have no students
-    teaches(Teacher2, Course),
-    Teacher2 \== Teacher, % Teacher of these exams should be different
     check_against_others(Students, Teacher, Room, Events, Start, End, Day). % check recursively
 % Not overlapping (Exams are not held at the same time), we should still continue the recursion to check against all other exams
 check_against_others(Students, Teacher, Room, [event(Ex, _, Day1, Start1)|Events], Start2, End2, Day2) :-
