@@ -17,7 +17,7 @@ check_capacity(schedule([])). % No events is always true
 check_capacity(schedule([event(Ex, Room, _, _) | Evnts])) :-
     has_exam(Course, Ex),
     capacity(Room, Cap),
-    findall(S, follows(S, Course), Students), % Find all students for this course
+    getstudents(Course, Students), % Find all students for this course
     length(Students, Numstudents),
     Cap >= Numstudents, % Check if the amount of students fit the capacity
     check_capacity(schedule(Evnts)). % Check recursively
@@ -35,16 +35,6 @@ check_availability(schedule([event(E, R, D, H)|Elist])) :-
     between(ForseenSt, Difference, H),
     check_availability(schedule(Elist)).
 
-
-:- dynamic allfollow/2.
-
-% Because we have to check each time if the students for a course intersect with
-% with the students for another course we can cache the students, this limits
-% the expensive call findall/3
-getstudents(Course, Students) :- allfollow(Course, Students), !.
-getstudents(Course, Students) :-
-    findall(S, follows(S, Course), Students),
-    assert(allfollow(Course, Students)).
 
 % Check for a group of students, a teacher and a room if there is an exam at the same time
 check_against_others(_, _, _, [], _, _, _). % Rec end
@@ -92,5 +82,6 @@ check_same_time(schedule([event(Ex, Room, Day, Start)|Tail])) :-
 % Do least demanding tests first
 is_valid(Schedule) :- check_all(Schedule),
                       check_capacity(Schedule),
+                      !,
                       check_availability(Schedule),
                       check_same_time(Schedule).

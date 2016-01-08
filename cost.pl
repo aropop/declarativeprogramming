@@ -133,7 +133,7 @@ on_same_day_student_cost(_, _, [], 0).
 on_same_day_student_cost(Pred, Students, [Ex|Lst], Cost) :-
     has_exam(Course, Ex),
     % find all students following both courses
-    findall(S, follows(S, Course), OtherStudents),
+    getstudents(Course, OtherStudents),
     intersection(Students, OtherStudents, Overlap),
     % Map the penalty over all students
     maplist(Pred, Overlap, Costs),
@@ -185,7 +185,7 @@ cost_loop(EventLst, StCost, TCost) :-
     teaches(Teacher, Course),
     duration(Ex, Dur),
     End is St+Dur,
-    findall(S, follows(S, Course), Students),
+    getstudents(Course, Students),
     % Calculate all b2b and same day exams
     b2b_exam(event(Ex, Rm, Day, St), Evnts, B2BExams, SameDayExams), !,
     % Calculate the cost for each soft constraint

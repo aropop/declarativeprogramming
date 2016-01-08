@@ -1,4 +1,4 @@
-:- module(util, [delete_one/3, list_sum/2, build/3, take/4, exam_to_num/2, event_compare/3, exam_from_event/2, overlap/4, has_exam_inv/2, fit_lst/2, fit/2]).
+:- module(util, [delete_one/3, list_sum/2, build/3, take/4, exam_to_num/2, event_compare/3, exam_from_event/2, overlap/4, has_exam_inv/2, fit_lst/2, fit/2, getstudents/2]).
 
 % Deletes one element from a list
 delete_one(_, [], []).
@@ -66,3 +66,14 @@ fit_lst(E1, [E2|Rst]) :-
 
 % Inverse predicate of has_exam
 has_exam_inv(A, B) :- has_exam(B, A).
+
+
+:- dynamic allfollow/2.
+
+% Because we have to check each time if the students for a course intersect with
+% with the students for another course we can cache the students, this limits
+% the expensive call findall/3
+getstudents(Course, Students) :- allfollow(Course, Students), !.
+getstudents(Course, Students) :-
+    findall(S, follows(S, Course), Students),
+    assert(allfollow(Course, Students)).
