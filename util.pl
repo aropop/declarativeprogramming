@@ -46,13 +46,14 @@ exam_from_event(event(E, _, _, _), E).
 
 % Check if 2 times overlap
 overlap(Start1, End1, Start2, End2) :-
-  ((Start1 =< Start2, Start2 < End1);
-   (Start2 =< Start1, Start1 < End2)).
-overlap(event(E1, R, D, H1), event(E2, R, D, H2)) :- duration(E1, Dur1),
-                                                   duration(E2, Dur2),
-                                                   End1 is H1+Dur1,
-                                                   End2 is H2+Dur2,
-                                                   overlap(H1, End1, H2, End2).
+    between(Start1, End1, Start2), End1 \= Start2;
+    between(Start2, End2, Start1), Start1 \= End2.
+overlap(event(E1, R, D, H1), event(E2, R, D, H2)) :-
+    duration(E1, Dur1),
+    duration(E2, Dur2),
+    End1 is H1+Dur1,
+    End2 is H2+Dur2,
+    overlap(H1, End1, H2, End2).
 
 % Checks if 2 events fit
 fit(E1, E2) :- not(overlap(E1, E2)).

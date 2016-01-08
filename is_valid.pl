@@ -6,6 +6,8 @@
 % Checks if all exams are in a schedule and whether they are only scheduled once
 check_all(schedule(Events)) :-
     findall(Exam, exam(Exam,_), Exams), % Makes sure only to get all exams once
+    length(Exams, L), % Make sure length of lists is equal
+    length(Lst, L),
     maplist(exam_from_event, Events, Lst),
     permutation(Exams, Lst). % Enforces that all exams are scheduled and scheduled only once
 
@@ -34,6 +36,16 @@ check_availability(schedule([event(E, R, D, H)|Elist])) :-
     check_availability(schedule(Elist)).
 
 
+:- dynamic allfollow/2.
+
+% Because we have to check each time if the students for a course intersect with
+% with the students for another course we can cache the students, this limits
+% the expensive call findall/3
+getstudents(Course, Students) :- allfollow(Course, Students), !.
+getstudents(Course, Students) :-
+    findall(S, follows(S, Course), Students),
+    assert(allfollow(Course, Students)).
+
 % Check for a group of students, a teacher and a room if there is an exam at the same time
 check_against_others(_, _, _, [], _, _, _). % Rec end
 check_against_others(Students, Teacher, Room, [event(Ex, OtherRoom, Day, Start2)|Events], Start, End, Day) :- % Unifies if days are the same
@@ -41,11 +53,11 @@ check_against_others(Students, Teacher, Room, [event(Ex, OtherRoom, Day, Start2)
     duration(Ex, Dur),
     has_exam(Course, Ex),
     End2 is Start2+Dur,
-    overlap(Start, End, Start2, End2), % Overlaps, check if same student or teacher
+    overlap(Start, End, Start2, End2), % Overlaps, check if same student or teacher or room
     Room \== OtherRoom,
     teaches(Teacher2, Course),
     Teacher2 \== Teacher, % Teacher of these exams should be different
-    findall(S, follows(S, Course), Students2),
+    getstudents(Course, Students2),
     intersection(Students, Students2, Ints), % intersect original group of students and students of exam checked
     length(Ints, L),
     L == 0, % The intersect should have no students
@@ -57,8 +69,10 @@ check_against_others(Students, Teacher, Room, [event(Ex, _, Day1, Start1)|Events
       duration(Ex, Dur),
       End1 is Start1 + Dur,
       not(overlap(Start2, End2, Start1, End1)))),
+    !,
     %Still have to go deeper in the recursion (others might overlap with others)
     check_against_others(Students, Teacher, Room, Events, Start2, End2, Day2).
+
 
 % Checks wether 2 exams are at the same time
 check_same_time(schedule([])).
@@ -67,7 +81,8 @@ check_same_time(schedule([event(Ex, Room, Day, Start)|Tail])) :-
     has_exam(Course, Ex),
     duration(Ex, Dur),
     teaches(Teacher, Course),
-    findall(S, follows(S, Course), Students),
+    getstudents(Course, Students),
+    %findall(S, follows(S, Course), Students),
     End is Start+Dur,
     % Check with the other exams in the list
     check_against_others(Students, Teacher, Room, Tail, Start, End, Day),
