@@ -2,7 +2,7 @@
 
 ## How to run
 
-Execute following command from shell (not directory should be in the root of the project
+Execute following command from shell (not directory should be in the root of the project)
 
 ```bash
 prolog main.pl
